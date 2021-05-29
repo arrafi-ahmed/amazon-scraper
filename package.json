@@ -1,0 +1,16 @@
+{
+  "name": "amazon-scraper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm i && node index.js"
+  },
+  "author": "Raf",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "cheerio": "*",
+    "xlsx": "^0.17.0"
+  }
+}
