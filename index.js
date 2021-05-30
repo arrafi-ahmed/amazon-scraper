@@ -1,6 +1,9 @@
 const axios = require('axios')
 const xlsx = require('xlsx')
 const cheerio = require('cheerio')
+const pLimit = require('p-limit')
+
+const limit = pLimit(1)
 
 // input from input.xlsx
 let wb = xlsx.readFile('input.xlsx')
@@ -12,45 +15,48 @@ if (products.length == 0) {
   return
 }
 const tempProducts = []
+const addProduct = (index, price, link, tempProducts) => {
+  const newProduct = { index, price, link }
+  tempProducts.push(newProduct)
+}
 //fetch data sequentially
 ;(async () => {
   await Promise.all(
     products.map((product, index) => {
-      return axios
-        .get(product.az_link)
-        .then((response) => {
-          if (response.data) {
-            const $ = cheerio.load(response.data)
-            const price = $('#priceblock_ourprice').text().replaceAll('$', '')
-            const processedProduct = { index, price, link: product.az_link }
-            tempProducts.push(processedProduct)
-            console.log(`${index} -- added`)
-          } else {
-            console.log('Invalid response')
-          }
-        })
-        .catch((error) => {
-          const errorProduct = {
-            index,
-            price: '---',
-            link: '---',
-          }
-          tempProducts.push(errorProduct)
-
-          if (error.response && error.response.status == 404) {
-            console.log(`${index} -- ${product.az_link} not found ***`)
-          } else if (error.response && error.response.status == 401) {
-            console.log(
-              `${index} -- ${product.az_link} authentication error ***`
-            )
-          } else if (error.isAxiosError) {
-            console.log(
-              'Error: Client network socket disconnected before secure TLS connection was established'
-            )
-          } else {
-            console.log(error)
-          }
-        })
+      return limit(() =>
+        axios
+          .get(product.az_link)
+          .then((response) => {
+            if (response.data) {
+              const $ = cheerio.load(response.data)
+              const price = $('#priceblock_ourprice').text().replaceAll('$', '')
+              if (price) {
+                addProduct(index, price, product.az_link, tempProducts)
+                console.log(`${index} -- added`)
+              } else {
+                addProduct(index, '---', product.az_link, tempProducts)
+                console.log(`${index} -- not available`)
+              }
+            } else {
+              addProduct(index, '---', product.az_link, tempProducts)
+              console.log(`${index} -- invalid response`)
+            }
+          })
+          .catch((error) => {
+            addProduct(index, '---', product.az_link, tempProducts)
+            if (error.response && error.response.status == 404) {
+              console.log(`${index} -- not found ***`)
+            } else if (error.response && error.response.status == 401) {
+              console.log(`${index} -- authentication error ***`)
+            } else if (error.isAxiosError) {
+              console.log(
+                'Error: Client network socket disconnected before secure TLS connection was established'
+              )
+            } else {
+              console.log(error)
+            }
+          })
+      )
     })
   ).catch((error) => console.log(error))
   // create output
