@@ -3,7 +3,7 @@ const xlsx = require('xlsx')
 const cheerio = require('cheerio')
 const pLimit = require('p-limit')
 
-const limit = pLimit(1)
+const limit = pLimit(10)
 
 // input from input.xlsx
 let wb = xlsx.readFile('input.xlsx')
@@ -19,13 +19,16 @@ const addProduct = (index, price, link, tempProducts) => {
   const newProduct = { index, price, link }
   tempProducts.push(newProduct)
 }
+const userAgent =
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'
+
 //fetch data sequentially
 ;(async () => {
   await Promise.all(
     products.map((product, index) => {
       return limit(() =>
         axios
-          .get(product.az_link)
+          .get(product.az_link, { headers: { 'User-Agent': userAgent } })
           .then((response) => {
             if (response.data) {
               const $ = cheerio.load(response.data)
@@ -35,7 +38,7 @@ const addProduct = (index, price, link, tempProducts) => {
                 console.log(`${index} -- added`)
               } else {
                 addProduct(index, '---', product.az_link, tempProducts)
-                console.log(`${index} -- not available`)
+                console.log(`${index} -- price unavailable`)
               }
             } else {
               addProduct(index, '---', product.az_link, tempProducts)
